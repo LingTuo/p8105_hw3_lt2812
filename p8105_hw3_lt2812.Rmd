@@ -1,0 +1,11 @@
+---
+title: "Homework 3"
+author: Ling Tuo
+date: 10/06/2020
+output: 
+  github_document:
+    toc: true
+---
+
+This is my solution to HW3. 
+
