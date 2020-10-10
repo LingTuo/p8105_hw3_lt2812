@@ -49,7 +49,8 @@ instacart %>%
 
 Let's make a plot.
 ```{r}
-instacart %>% 
+plot_p1 = 
+  instacart %>% 
   count(aisle) %>% 
   filter(n > 10000) %>% 
   mutate(
@@ -59,6 +60,8 @@ instacart %>%
   ggplot(aes(x = aisle, y = n)) + 
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+ggsave("plot_p1.png", plot_p1)
 ```
 
 Let's make a table.
@@ -89,5 +92,68 @@ instacart %>%
 ```
 
 
+## Problem 2
+
+ - Firstly, load and tidy data.
+
+```{r}
+accel_data = read_csv(file = "./data/accel_data.csv") %>% 
+  pivot_longer(
+    activity.1:activity.1440,
+    names_to = "min_of_day",
+    names_prefix = "activity.",
+    values_to = "activity_count"
+    ) %>% 
+  mutate(
+    day = factor(day),
+    min_of_day = as.numeric(min_of_day),
+    day_of_week = case_when(
+      day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday") ~ "weekday",
+      day %in% c("Saturday", "Sunday") ~ "weekend"
+      )
+    ) 
+```
+
+This dataset has `r nrow(accel_data)` rows and `r ncol(accel_data)` columns. Observations are activity counts of a person with CHF in orders by minutes of a 24-hour day. There are time variables -- week, day ID, day， minute of the day, day of the week(weekday or weekend) and activity counts variable. 
+
+
+ - Then, calculate the total activity over the day.
+```{r}
+accel_data %>% 
+  group_by(week, day) %>% 
+  summarize(sum_activity_count = sum(activity_count)) %>% 
+  pivot_wider(
+    names_from = day,
+    values_from = sum_activity_count
+  ) %>% 
+  select(week, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday) %>% 
+  knitr::kable()
+```
+
+According to the table, the person tended to have more stable total activity time on Tuesday and Wednesday. It shows that his activity time are higher in the first three weeks on weekends.
+
+
+ - Lastly, make the plot of the 24-hour activity time courses for each day.
+ 
+```{r}
+plot_p2 = 
+  accel_data %>% 
+  group_by(week, day) %>% 
+  ggplot(aes(x = min_of_day, y = activity_count, color = day, alpha = .3)) + 
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "24-hour activity time courses for each day",
+    x = "Minute of the day/hours(min/h)",
+    y = "Activity counts") + 
+  scale_x_continuous(
+    breaks = c(0, 180, 360, 540, 720, 900, 1080, 1260, 1440),
+    labels = c("0/0h", "180/3h", "360/6h", "540/9h", "720/12h", "900/15h", "1080/18h", "1260/21h", "1440/24h")
+  )
+
+ggsave("plot_p2.png", plot_p2)
+```
+
+The plot indicates that there are low activity in the night, from 9 p.m - 6 a.m. and there are a few peaks unevenly spread during daytime from Monday to Sunday. Especially, the most frequently activity time is around 9 p.m.
 
 
