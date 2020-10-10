@@ -12,6 +12,9 @@ This is my solution to HW3.
 ```{r setup, include = FALSE}
 library(p8105.datasets)
 library(tidyverse)
+library(patchwork)
+library(ggplot2)
+library(hexbin)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -62,6 +65,7 @@ plot_p1 =
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 ggsave("plot_p1.png", plot_p1)
+plot_p1
 ```
 
 Let's make a table.
@@ -88,7 +92,8 @@ instacart %>%
   pivot_wider(
     names_from = order_dow,
     values_from = mean_hour
-  )
+  ) %>% 
+  knitr::kable()
 ```
 
 
@@ -96,7 +101,7 @@ instacart %>%
 
  - Firstly, load and tidy data.
 
-```{r}
+```{r message = FALSE}
 accel_data = read_csv(file = "./data/accel_data.csv") %>% 
   pivot_longer(
     activity.1:activity.1440,
@@ -118,7 +123,7 @@ This dataset has `r nrow(accel_data)` rows and `r ncol(accel_data)` columns. Obs
 
 
  - Then, calculate the total activity over the day.
-```{r}
+```{r eval = FALSE}
 accel_data %>% 
   group_by(week, day) %>% 
   summarize(sum_activity_count = sum(activity_count)) %>% 
@@ -152,8 +157,104 @@ plot_p2 =
   )
 
 ggsave("plot_p2.png", plot_p2)
+plot_p2
 ```
 
-The plot indicates that there are low activity in the night, from 9 p.m - 6 a.m. and there are a few peaks unevenly spread during daytime from Monday to Sunday. Especially, the most frequently activity time is around 9 p.m.
+The plot indicates that there are low activity in the night, from 9 p.m to 6 a.m. and there are a few peaks unevenly spread during daytime from Monday to Sunday. Especially, the most frequently activity time is around 9 p.m.
+
+## Problem 3
+
+ - Firstly, load and tidy the dataset.
+
+```{r}
+data("ny_noaa")
+ny_noaa_tidy =
+  ny_noaa %>% 
+  separate(date, into = c("year", "month", "day"), sep = "-") %>% 
+  mutate(
+    prcp = prcp/10,
+    across(tmax:tmin, as.numeric),
+    tmax = tmax/10,
+    tmin = tmin/10
+  )
+```
+
+```{r}
+ny_noaa_tidy %>% 
+  count(snow, name = "n_obs")
+```
+
+This dataset contains `r nrow(ny_noaa_tidy)` rows and `r ncol(ny_noaa_tidy)` columns. Observations are the five core variables for all New York state weather stations from 1981 through 2010. 
+
+There are order variables - id, date(year, month, day) and the core variables -- Precipitation(mm), Snowfall(mm), Snow depth(mm), Maximum temperature(degrees C) and Minimum temperature(degrees C). 
+
+Also, there are `r sum(is.na(pull(ny_noaa_tidy,prcp))) ` missing data in Precipitation, `r sum(is.na(pull(ny_noaa_tidy,snow))) ` missing data in Snowfall, `r sum(is.na(pull(ny_noaa_tidy,snwd))) ` missing data in Snow depth, `r sum(is.na(pull(ny_noaa_tidy,tmax))) ` missing data in Maximum temperature, `r sum(is.na(pull(ny_noaa_tidy,tmin))) ` missing data in Minimum temperature. The number of missing data is large, especially temperature values(almost 50%).
+
+For snowfall, the most commonly observed values is 0, which indicates that New York mostly does not have snow maybe related to the geographic conditions and climates.
 
 
+ - Then, make plots of average max temperature in January and July in each station across years.
+ 
+```{r warning = FALSE}
+plot_max = 
+  ny_noaa_tidy %>% 
+  group_by(id, year, month) %>% 
+  filter(month %in% c("01", "07")) %>% 
+  summarize(
+    mean_tmax = mean(tmax, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = mean_tmax, color = id, group = id)) + 
+  geom_point(alpha = .3) +
+  geom_path(alpha = .3) +
+  theme(legend.position = 'none') +
+  facet_grid(. ~ month) +
+  labs(
+    title = "Average max temperature in January and July",
+    x = "year",
+    y = "average maximum temperature"
+    ) +
+  scale_x_discrete(breaks = c("1981", "1986", "1991", "1996", "2001", "2006", "2010"))
+  
+ggsave("plot_max.png", plot_max)
+plot_max
+```
+
+According to the plot, the average max temperature in Janurary kept fluctuated from 1981 to 2010 with a slightly rising trend in most of stations. In July, the average max temperatures are similarly unstable. And there are a few outliers much lower than normal values.
+
+
+ - Finally, (i) make a plot of tmax vs tmin for the full dataset
+ 
+```{r}
+plot_temp = 
+  ny_noaa_tidy %>% 
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_hex(alpha = .5, na.rm = TRUE) +
+  labs(
+    title = "tmin vs tmax",
+    x = "tmin(C)",
+    y = "tmax(C)"
+    ) +
+  theme(legend.position = 'right')
+```
+
+A large number of values gathered around (10, 20) and there are several outliers.
+
+
+(ii) make a plot showing the distribution of snowfall values and combine two plots.
+
+```{r}
+plot_snow = 
+  ny_noaa_tidy %>% 
+  filter(snow < 100 & snow > 0) %>% 
+  ggplot(aes(x = snow, y = year)) +
+  geom_boxplot() + 
+  labs(
+    title = "Distribution of snowfall",
+    x = "snowfall(mm)",
+    y = "year"
+    ) 
+
+plot_temp / plot_snow
+ggsave("plot_p3.png", plot_temp / plot_snow)
+```
+
+The mean and minimum values are almost equal in the plot, most of maximum values are close as well. The snowfall in 1998, 2006 and 2010 seems to be more unique than other years.
